@@ -8,33 +8,28 @@ import plotly.express as px
 # Configuración inicial de la página
 st.set_page_config(page_title="Mi Finanzas Pro", page_icon="📈", layout="wide")
 
-# --- CONEXIÓN MODERNA Y SEGURA A GOOGLE SHEETS ---
+# --- CONEXIÓN A GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    # Revisa si está corriendo en Streamlit Cloud con Secrets
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
         credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     else:
-        # Modo de prueba local en tu PC
         credentials = Credentials.from_service_account_file("credenciales.json", scopes=scopes)
     
     gc = gspread.authorize(credentials)
-    # Abre la hoja por su nombre exacto en Google Drive
     return gc.open("Control de Gastos")
 
-# 1. Intentar conectar a la hoja de cálculo
 try:
     spreadsheet = conectar_google_sheets()
     worksheets = spreadsheet.worksheets()
     hojas_disponibles = [ws.title for ws in worksheets]
 except Exception as e:
     st.error(f"Error al conectar con Google Sheets: {e}")
-    st.info("💡 Verifica que le hayas compartido la hoja a tu correo de servicio con rol de Editor.")
     st.stop()
 
 if not hojas_disponibles:
@@ -45,7 +40,7 @@ if not hojas_disponibles:
 st.sidebar.title("📈 Opciones")
 hoja_seleccionada = st.sidebar.selectbox("📅 Selecciona el Periodo", hojas_disponibles)
 
-# Cargar datos de forma segura con caché corta
+# Cargar datos de forma segura
 @st.cache_data(ttl=5)
 def cargar_datos(nombre_hoja):
     try:
@@ -53,7 +48,7 @@ def cargar_datos(nombre_hoja):
         datos = worksheet.get_all_records()
         df = pd.DataFrame(datos)
         
-        # Limpieza y conversión numérica de Monto y Presupuesto
+        # Limpieza de columnas numéricas
         if 'Monto' in df.columns:
             df['Monto'] = pd.to_numeric(df['Monto'], errors='coerce').fillna(0)
         else:
@@ -66,21 +61,27 @@ def cargar_datos(nombre_hoja):
 
         return df
     except Exception as e:
-        st.warning(f"No se pudieron leer registros en '{nombre_hoja}'. Asegúrate de que la Fila 1 contenga los encabezados.")
+        st.warning(f"No se pudieron leer registros en '{nombre_hoja}'.")
         return pd.DataFrame()
 
 df = cargar_datos(hoja_seleccionada)
 
-# --- CÁLCULOS FINANCIEROS (CON LIMPIEZA DE ESPACIOS) ---
+# --- CÁLCULOS FINANCIEROS Y LIMPIEZA DE DATOS EXHAUSTIVA ---
 if not df.empty and 'Tipo' in df.columns:
-    # .strip() quita espacios al inicio y final; .lower() convierte todo a minúsculas
-    tipo_limpio = df['Tipo'].astype(str).str.strip().str.lower()
+    # 1. Convertimos a string, quitamos todos los espacios y pasamos a minúsculas
+    tipo_limpio = df['Tipo'].astype(str).str.replace(' ', '').str.strip().str.lower()
     
-    df_ingresos = df[tipo_limpio == 'ingreso']
-    df_egresos = df[tipo_limpio == 'egreso']
+    # 2. Usamos contains para atrapar "ingreso", "ingresos", etc.
+    df_ingresos = df[tipo_limpio.str.contains('ingreso', na=False)]
+    df_egresos = df[tipo_limpio.str.contains('egreso', na=False)]
     
     total_ingresos = df_ingresos['Monto'].sum()
     total_egresos = df_egresos['Monto'].sum()
+    
+    # Herramienta oculta por si necesitas ver qué pasa en el futuro
+    with st.expander("🛠️ Depuración de Datos"):
+        st.write("Valores encontrados en la columna 'Tipo':", df['Tipo'].unique())
+        st.write("Columnas detectadas:", df.columns.tolist())
 else:
     total_ingresos = 0.0
     total_egresos = 0.0
@@ -100,27 +101,27 @@ with tab1:
     col2.metric("Total Gastado", f"${total_egresos:,.2f}")
     
     saldo_color = "normal" if saldo_actual >= 0 else "inverse"
-    col3.metric("Saldo Disponible (Sobra)", f"${saldo_actual:,.2f}", delta_color=saldo_color)
+    col3.metric("Saldo Disponible", f"${saldo_actual:,.2f}", delta_color=saldo_color)
 
     st.divider()
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
-        st.subheader("Gastos por Categoría")
+        st.subheader("Distribución de Gastos")
         if not df_egresos.empty and 'Categoria' in df_egresos.columns and total_egresos > 0:
             gastos_cat = df_egresos.groupby('Categoria')['Monto'].sum().reset_index()
             fig_pie = px.pie(gastos_cat, values='Monto', names='Categoria', hole=0.4,
                              color_discrete_sequence=px.colors.sequential.Teal)
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
-            st.info("No hay egresos registrados para mostrar gráfico.")
+            st.info("No hay egresos para graficar.")
             
     with col_chart2:
         st.subheader("Últimos Registros")
         if not df.empty:
             st.dataframe(df.tail(8), use_container_width=True, hide_index=True)
         else:
-            st.info("No hay movimientos registrados en este periodo.")
+            st.info("Sin registros.")
 
 # --- PESTAÑA 2: PRESUPUESTOS ---
 with tab2:
@@ -130,12 +131,11 @@ with tab2:
         df_pres['Diferencia'] = df_pres['Presupuesto'] - df_pres['Monto']
         
         fig_bar = px.bar(df_pres, x='Categoria', y=['Presupuesto', 'Monto'], barmode='group',
-                         labels={'value': 'Monto ($)', 'variable': 'Tipo'},
                          color_discrete_map={'Presupuesto': '#A5D6A7', 'Monto': '#EF9A9A'})
         st.plotly_chart(fig_bar, use_container_width=True)
-        st.dataframe(df_pres, use_container_width=True)
+        st.dataframe(df_pres.style.format({'Presupuesto': '${:.2f}', 'Monto': '${:.2f}', 'Diferencia': '${:.2f}'}), use_container_width=True)
     else:
-        st.info("No hay egresos para calcular comparativa de presupuesto.")
+        st.info("No hay datos comparativos.")
 
 # --- PESTAÑA 3: FORMULARIO DE CAPTURA ---
 with tab3:
@@ -154,17 +154,16 @@ with tab3:
             
         with c3:
             presupuesto = st.number_input("Presupuesto ($)", min_value=0.0, step=10.0)
-            monto = st.number_input("Monto Real ($)", min_value=0.0, step=10.0)
+            monto = st.number_input("Monto ($)", min_value=0.0, step=10.0)
             
         submit = st.form_submit_button("Guardar Registro", type="primary")
         
         if submit:
             try:
                 worksheet = spreadsheet.worksheet(hoja_seleccionada)
-                # Formato en Fila 1 de Google Sheets: Fecha, Mes, Tipo, Categoria, Concepto, Presupuesto, Monto
                 nueva_fila = [fecha, mes, tipo, categoria, concepto, presupuesto, monto]
                 worksheet.append_row(nueva_fila)
                 st.success("¡Registro guardado exitosamente!")
-                st.cache_data.clear() # Limpia la caché para refrescar los datos en pantalla
+                st.cache_data.clear()
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
