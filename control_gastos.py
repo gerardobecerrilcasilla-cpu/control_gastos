@@ -149,7 +149,7 @@ with tab3:
             tipo = st.selectbox("Tipo", ["Egreso", "Ingreso"])
             
         with c2:
-            categoria = st.selectbox("Categoría", ["Servicios", "Gastos", "Deudas", "Ahorro/Inversión", "Total Cuenta", "Sueldo/Honorarios"])
+            categoria = st.selectbox("Categoría", ["Deudas y Compromisos Financieros","Otros","Mascotas","Entretenimiento y Estilo de Vida","Crecimiento Profesional y Educación", "Salud, Bienestar y Cuidado Personal", "Deudas", "Ahorro", "Velas","Vivienda y Servicios","Alimentación y Mercado","Transporte y Movilidad"])
             concepto = st.text_input("Concepto / Detalle")
             
         with c3:
