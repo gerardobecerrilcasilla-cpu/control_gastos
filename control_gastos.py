@@ -103,7 +103,7 @@ tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "💰 Presupuestos", "📝 Registr
 
 with tab1:
     col1, col2, col3 = st.columns(3)
-    col1.metric("Ingresos del Mes", f"${total_ingresos:,.2f}")
+    col1.metric("Ingresos de la quincena", f"${total_ingresos:,.2f}")
     col2.metric("Total Gastado", f"${total_egresos:,.2f}")
     saldo_color = "normal" if saldo_actual >= 0 else "inverse"
     col3.metric("Saldo Disponible", f"${saldo_actual:,.2f}", delta_color=saldo_color)
