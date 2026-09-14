@@ -150,7 +150,7 @@ with tab3:
             
         with c2:
             categoria_seleccionada = st.selectbox("Categoría", list(PRESUPUESTOS_BASE.keys()))
-            concepto = st.text_input("Concepto / Detalle (Opcional)")
+            concepto = st.text_input("Concepto")
             monto = st.number_input("Monto Real ($)", min_value=0.0, step=10.0)
             
         with c3:
