@@ -159,7 +159,7 @@ with tab3:
             # Campo condicional de tarjeta (Solo se captura si se eligió Tarjeta)
             tarjeta_especifica = "N/A"
             if metodo_pago == "Tarjeta (Crédito/Débito)":
-                tarjeta_especifica = st.selectbox("¿Qué Tarjeta usaste?", ["Débito Nómina", "Crédito Banamex", "Crédito BBVA", "Otra"])
+                tarjeta_especifica = st.selectbox("¿Qué Tarjeta usaste?", ["Débito Nómina","Débito Mercado libre","Débito Nu" "Crédito Nu", "Débito BBVA","Crédito BBVA","Crédito Nu","Crédito Mercado Libre","Crédito Santander","Crédito Perro","Otra"])
 
             # El presupuesto ya no se pide a mano, se avisa que es automático
             st.info(f"El presupuesto de ${PRESUPUESTOS_BASE[categoria_seleccionada]:,.2f} se asignará automáticamente.")
