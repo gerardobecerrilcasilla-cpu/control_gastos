@@ -18,7 +18,7 @@ PRESUPUESTOS_BASE = {
     "Gastos Personales (Ropa/Corte/Hobbies)": 120.0,
     "Insumos Proyecto Ivora": 0.0,
     "Ahorro e Inversión": 3000.0,
-    "Deudas y Tarjetas": 3000.0,
+    "Deudas y Tarjetas": 14000.0,
     "Sueldo/Honorarios": 0.0,
     "Otros / Varios": 500.0
 }
