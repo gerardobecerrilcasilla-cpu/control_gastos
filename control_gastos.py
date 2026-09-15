@@ -9,16 +9,16 @@ st.set_page_config(page_title="Mi Finanzas Pro", page_icon="📈", layout="wide"
 
 # --- 1. CONFIGURACIÓN DE PRESUPUESTOS BASE ---
 PRESUPUESTOS_BASE = {
-    "Vivienda y Servicios (Luz/Gas/Internet)": 2500.0,
-    "Alimentación y Supermercado": 3500.0,
-    "Transporte (Gasolina/Estacionamiento/Ecobici)": 2000.0,
-    "Salud, Suplementos y Gimnasio": 1500.0,
-    "Mascotas (Alimento/Veterinario)": 1000.0,
-    "Entretenimiento (Netflix/Cine/Juegos)": 1200.0,
-    "Gastos Personales (Ropa/Corte/Hobbies)": 1500.0,
-    "Insumos Proyecto Ivora": 1000.0,
-    "Ahorro e Inversión": 2000.0,
-    "Deudas y Tarjetas": 0.0,
+    "Vivienda y Servicios (Luz/Gas/Internet)": 1500.0,
+    "Alimentación y Supermercado": 2000.0,
+    "Transporte (Gasolina/Estacionamiento/reparaciones)": 5000.0,
+    "Salud, Suplementos y Gimnasio": 1000.0,
+    "Mascotas (Alimento/Veterinario)": 700.0,
+    "Entretenimiento (Netflix/Cine/Juegos)": 500.0,
+    "Gastos Personales (Ropa/Corte/Hobbies)": 120.0,
+    "Insumos Proyecto Ivora": 0.0,
+    "Ahorro e Inversión": 3000.0,
+    "Deudas y Tarjetas": 3000.0,
     "Sueldo/Honorarios": 0.0,
     "Otros / Varios": 500.0
 }
