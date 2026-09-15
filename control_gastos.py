@@ -7,23 +7,6 @@ import plotly.express as px
 
 st.set_page_config(page_title="Mi Finanzas Pro", page_icon="📈", layout="wide")
 
-# --- 1. CONFIGURACIÓN DE PRESUPUESTOS (DICCIONARIO EN CÓDIGO) ---
-# Aquí defines cuánto quieres gastar al mes por cada categoría.
-PRESUPUESTOS_BASE = {
-    "Vivienda y Servicios (Luz/Gas/Internet)": 2500.0,
-    "Alimentación y Supermercado": 3500.0,
-    "Transporte (Gasolina/Estacionamiento/Ecobici)": 2000.0,
-    "Salud, Suplementos y Gimnasio": 1500.0,
-    "Mascotas (Alimento/Veterinario)": 1000.0,
-    "Entretenimiento (Netflix/Cine/Juegos)": 1200.0,
-    "Gastos Personales (Ropa/Corte/Hobbies)": 1500.0,
-    "Insumos Proyecto Ivora": 1000.0,
-    "Ahorro e Inversión": 2000.0,
-    "Deudas y Tarjetas": 0.0,
-    "Sueldo/Honorarios": 0.0,
-    "Otros / Varios": 500.0
-}
-
 # --- CONEXIÓN A GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
@@ -145,36 +128,55 @@ with tab3:
         
         with c1:
             fecha = st.date_input("Fecha", datetime.date.today()).strftime("%Y-%m-%d")
-            mes = st.text_input("Mes", hoja_seleccionada)
+            
+            # --- MEJORA: Mes como lista desplegable ---
+            lista_meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+            mes = st.selectbox("Mes", lista_meses)
+            
             tipo = st.selectbox("Tipo de Movimiento", ["Egreso", "Ingreso"])
             
         with c2:
-            categoria_seleccionada = st.selectbox("Categoría", list(PRESUPUESTOS_BASE.keys()))
+            # Lista de categorías actualizada
+            categorias_lista = [
+                "Vivienda y Servicios (Luz/Gas/Internet)", "Alimentación y Supermercado", 
+                "Transporte (Gasolina/Estacionamiento/Ecobici)", "Salud, Suplementos y Gimnasio", 
+                "Mascotas (Alimento/Veterinario)", "Entretenimiento (Netflix/Cine/Juegos)", 
+                "Gastos Personales (Ropa/Corte/Hobbies)", "Insumos Proyecto Ivora", 
+                "Ahorro e Inversión", "Deudas y Tarjetas", "Sueldo/Honorarios", "Otros / Varios"
+            ]
+            categoria_seleccionada = st.selectbox("Categoría", categorias_lista)
+            
             concepto = st.text_input("Concepto")
-            monto = st.number_input("Monto Real ($)", min_value=0.0, step=10.0)
+            
+            # --- MEJORA: Presupuesto asignado manualmente ---
+            presupuesto_asignado = st.number_input("Presupuesto ($)", min_value=0.0, step=10.0)
             
         with c3:
+            monto = st.number_input("Monto Real ($)", min_value=0.0, step=10.0)
             metodo_pago = st.selectbox("Método de Pago", ["Tarjeta (Crédito/Débito)", "Efectivo", "Transferencia", "Vales / App"])
             
-            # Campo condicional de tarjeta (Solo se captura si se eligió Tarjeta)
-            tarjeta_especifica = "N/A"
-            if metodo_pago == "Tarjeta (Crédito/Débito)":
-                tarjeta_especifica = st.selectbox("¿Qué Tarjeta usaste?", ["Débito Nómina","Débito Mercado libre","Débito Nu" "Crédito Nu", "Débito BBVA","Crédito BBVA","Crédito Nu","Crédito Mercado Libre","Crédito Santander","Crédito Perro","Otra"])
-
-            # El presupuesto ya no se pide a mano, se avisa que es automático
-            st.info(f"El presupuesto de ${PRESUPUESTOS_BASE[categoria_seleccionada]:,.2f} se asignará automáticamente.")
+            # --- MEJORA: Activación/Desactivación dinámica del campo Tarjeta ---
+            es_tarjeta = (metodo_pago == "Tarjeta (Crédito/Débito)")
+            lista_tarjetas = [
+                "N/A", "Débito Nómina", "Débito Mercado Libre", "Débito Nu", 
+                "Crédito Nu", "Débito BBVA", "Crédito BBVA", "Crédito Mercado Libre", 
+                "Crédito Santander", "Crédito Perro", "Otra"
+            ]
+            
+            tarjeta_especifica = st.selectbox(
+                "¿Qué Tarjeta usaste?", 
+                lista_tarjetas, 
+                disabled=not es_tarjeta  # Se desactiva si no eligió tarjeta
+            )
             
         submit = st.form_submit_button("Guardar Registro", type="primary")
         
         if submit:
             try:
-                # Se jala el presupuesto automático desde el diccionario según la categoría elegida
-                presupuesto_asignado = PRESUPUESTOS_BASE.get(categoria_seleccionada, 0.0)
-                
-                # Regla de negocio: Si es ingreso, el presupuesto es 0 para no distorsionar las gráficas de egresos
-                if tipo == "Ingreso":
-                    presupuesto_asignado = 0.0
-
+                # Si el campo de tarjeta estaba desactivado, forzamos que se guarde como N/A
+                if not es_tarjeta:
+                    tarjeta_especifica = "N/A"
+                    
                 worksheet = spreadsheet.worksheet(hoja_seleccionada)
                 # Fila exacta: Fecha, Mes, Tipo, Categoria, Concepto, Presupuesto, Monto, Metodo_Pago, Tarjeta
                 nueva_fila = [fecha, mes, tipo, categoria_seleccionada, concepto, presupuesto_asignado, monto, metodo_pago, tarjeta_especifica]
