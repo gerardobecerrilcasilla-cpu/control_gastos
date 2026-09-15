@@ -8,7 +8,6 @@ import plotly.express as px
 st.set_page_config(page_title="Mi Finanzas Pro", page_icon="📈", layout="wide")
 
 # --- 1. CONFIGURACIÓN DE PRESUPUESTOS BASE ---
-# Modifica los números aquí. Esta es la lista que dictará tu presupuesto por categoría de forma automática.
 PRESUPUESTOS_BASE = {
     "Vivienda y Servicios (Luz/Gas/Internet)": 2500.0,
     "Alimentación y Supermercado": 3500.0,
@@ -70,11 +69,6 @@ def cargar_datos(nombre_hoja):
         else:
             df['Monto'] = 0.0
 
-        if 'Presupuesto' in df.columns:
-            df['Presupuesto'] = df['Presupuesto'].apply(limpiar_moneda).fillna(0)
-        else:
-            df['Presupuesto'] = 0.0
-
         return df
     except Exception as e:
         st.warning(f"Error al leer la hoja. ¿Están las columnas correctas? Detalles: {e}")
@@ -127,75 +121,89 @@ with tab1:
         else:
             st.info("Sin registros.")
 
+# --- PESTAÑA 2: PRESUPUESTO CORREGIDO ---
 with tab2:
     st.subheader("Presupuesto vs Gasto Real")
+    
+    # Creamos un DataFrame con el presupuesto fijo dictado por el código
+    df_presupuestos_fijos = pd.DataFrame(list(PRESUPUESTOS_BASE.items()), columns=['Categoria', 'Presupuesto'])
+    
     if not df_egresos.empty and 'Categoria' in df_egresos.columns:
-        df_pres = df_egresos.groupby('Categoria')[['Presupuesto', 'Monto']].sum().reset_index()
+        # Sumamos solo lo que has gastado
+        gastos_reales = df_egresos.groupby('Categoria')['Monto'].sum().reset_index()
+        
+        # Juntamos los gastos reales con el límite de tu presupuesto fijo
+        df_pres = pd.merge(df_presupuestos_fijos, gastos_reales, on='Categoria', how='left').fillna(0)
+        df_pres = df_pres[df_pres['Presupuesto'] > 0] # Mostrar solo las que tienen presupuesto asignado
+        
         df_pres['Diferencia'] = df_pres['Presupuesto'] - df_pres['Monto']
+        
         fig_bar = px.bar(df_pres, x='Categoria', y=['Presupuesto', 'Monto'], barmode='group')
         st.plotly_chart(fig_bar, use_container_width=True)
         st.dataframe(df_pres.style.format({'Presupuesto': '${:,.2f}', 'Monto': '${:,.2f}', 'Diferencia': '${:,.2f}'}), use_container_width=True)
     else:
-        st.info("Sin datos.")
+        st.info("Sin datos de egresos para comparar.")
 
+# --- PESTAÑA 3: FORMULARIO REACTIVO (EN VIVO) ---
 with tab3:
-    with st.form("nuevo_registro", clear_on_submit=True):
-        st.subheader("Capturar Transacción")
-        c1, c2, c3 = st.columns(3)
+    st.subheader("Capturar Transacción")
+    
+    # Quitamos el "with st.form" para que la pantalla reaccione de inmediato
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        fecha = st.date_input("Fecha", datetime.date.today()).strftime("%Y-%m-%d")
+        lista_meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        mes = st.selectbox("Mes", lista_meses)
+        tipo = st.selectbox("Tipo de Movimiento", ["Egreso", "Ingreso"])
         
-        with c1:
-            fecha = st.date_input("Fecha", datetime.date.today()).strftime("%Y-%m-%d")
-            
-            lista_meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-            mes = st.selectbox("Mes", lista_meses)
-            
-            tipo = st.selectbox("Tipo de Movimiento", ["Egreso", "Ingreso"])
-            
-        with c2:
-            # La lista se carga automáticamente desde las llaves del diccionario de arriba
-            categoria_seleccionada = st.selectbox("Categoría", list(PRESUPUESTOS_BASE.keys()))
-            concepto = st.text_input("Concepto / Detalle (Opcional)")
-            
-            # --- NOTA: Se eliminó el campo de captura manual de Presupuesto ---
-            st.info("💡 El presupuesto se asigna automáticamente.")
-            
-        with c3:
-            monto = st.number_input("Monto Real ($)", min_value=0.0, step=10.0)
-            metodo_pago = st.selectbox("Método de Pago", ["Tarjeta (Crédito/Débito)", "Efectivo", "Transferencia", "Vales / App"])
-            
-            es_tarjeta = (metodo_pago == "Tarjeta (Crédito/Débito)")
-            lista_tarjetas = [
-                "N/A", "Débito Nómina", "Débito Mercado Libre", "Débito Nu", 
-                "Crédito Nu", "Débito BBVA", "Crédito BBVA", "Crédito Mercado Libre", 
-                "Crédito Santander", "Crédito Perro", "Otra"
-            ]
-            
-            tarjeta_especifica = st.selectbox(
-                "¿Qué Tarjeta usaste?", 
-                lista_tarjetas, 
-                disabled=not es_tarjeta
-            )
-            
-        submit = st.form_submit_button("Guardar Registro", type="primary")
+    with c2:
+        categoria_seleccionada = st.selectbox("Categoría", list(PRESUPUESTOS_BASE.keys()))
+        concepto = st.text_input("Concepto / Detalle (Opcional)")
         
-        if submit:
-            try:
-                # 1. Obtenemos el presupuesto desde la lista de arriba
-                presupuesto_asignado = PRESUPUESTOS_BASE.get(categoria_seleccionada, 0.0)
+        # --- LÓGICA EN VIVO: Calcular cuánto queda de esta categoría ---
+        limite_categoria = PRESUPUESTOS_BASE.get(categoria_seleccionada, 0.0)
+        
+        gasto_acumulado = 0.0
+        if not df_egresos.empty and 'Categoria' in df_egresos.columns:
+            gasto_acumulado = df_egresos[df_egresos['Categoria'] == categoria_seleccionada]['Monto'].sum()
+            
+        disponible = limite_categoria - gasto_acumulado
+        
+        # Mostramos la alerta de dinero restante
+        if tipo == "Egreso":
+            if disponible >= 0:
+                st.info(f"💡 Presupuesto: **${limite_categoria:,.2f}** | Disponible: **${disponible:,.2f}**")
+            else:
+                st.error(f"⚠️ ¡Te has excedido! Presupuesto: **${limite_categoria:,.2f}** | Disponible: **${disponible:,.2f}**")
+        else:
+            st.success("💰 Al ser Ingreso, no afecta presupuestos.")
+            
+    with c3:
+        monto = st.number_input("Monto Real ($)", min_value=0.0, step=10.0)
+        metodo_pago = st.selectbox("Método de Pago", ["Tarjeta (Crédito/Débito)", "Efectivo", "Transferencia", "Vales / App"])
+        
+        es_tarjeta = (metodo_pago == "Tarjeta (Crédito/Débito)")
+        lista_tarjetas = [
+            "N/A", "Débito Nómina", "Débito Mercado Libre", "Débito Nu", 
+            "Crédito Nu", "Débito BBVA", "Crédito BBVA", "Crédito Mercado Libre", 
+            "Crédito Santander", "Crédito Perro", "Otra"
+        ]
+        tarjeta_especifica = st.selectbox("¿Qué Tarjeta usaste?", lista_tarjetas, disabled=not es_tarjeta)
+        
+    # El botón ahora está suelto (no amarrado a un st.form)
+    if st.button("Guardar Registro", type="primary"):
+        try:
+            presupuesto_asignado = limite_categoria if tipo == "Egreso" else 0.0
+            
+            if not es_tarjeta:
+                tarjeta_especifica = "N/A"
                 
-                # 2. Si el movimiento es un ingreso, forzamos el presupuesto a 0
-                if tipo == "Ingreso":
-                    presupuesto_asignado = 0.0
-
-                if not es_tarjeta:
-                    tarjeta_especifica = "N/A"
-                    
-                worksheet = spreadsheet.worksheet(hoja_seleccionada)
-                
-                # Fila exacta: Fecha, Mes, Tipo, Categoria, Concepto, Presupuesto, Monto, Metodo_Pago, Tarjeta
-                nueva_fila = [fecha, mes, tipo, categoria_seleccionada, concepto, presupuesto_asignado, monto, metodo_pago, tarjeta_especifica]
-                worksheet.append_row(nueva_fila)
-                st.success(f"¡Registro guardado con éxito! (Presupuesto asignado: ${presupuesto_asignado:,.2f})")
-                st.cache_data.clear()
-            except Exception as e:
-                st.error(f"Error al guardar: {e}.")
+            worksheet = spreadsheet.worksheet(hoja_seleccionada)
+            nueva_fila = [fecha, mes, tipo, categoria_seleccionada, concepto, presupuesto_asignado, monto, metodo_pago, tarjeta_especifica]
+            worksheet.append_row(nueva_fila)
+            st.success(f"¡Registro guardado! (Gastaste ${monto:,.2f} en {categoria_seleccionada})")
+            st.cache_data.clear()
+            st.rerun() # Fuerza a recargar la página para limpiar los campos y actualizar saldos
+        except Exception as e:
+            st.error(f"Error al guardar: {e}. Verifica que añadiste las nuevas columnas en Google Sheets.")
