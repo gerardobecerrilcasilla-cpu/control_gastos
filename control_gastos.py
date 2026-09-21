@@ -20,6 +20,7 @@ PRESUPUESTOS_BASE = {
     "Ahorro e Inversión": 3000.0,
     "Deudas y Tarjetas": 14000.0,
     "Sueldo/Honorarios": 0.0,
+    "Salidas" : 2000
     "Otros / Varios": 500.0
 }
 
