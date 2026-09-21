@@ -20,7 +20,7 @@ PRESUPUESTOS_BASE = {
     "Ahorro e Inversión": 3000.0,
     "Deudas y Tarjetas": 14000.0,
     "Sueldo/Honorarios": 0.0,
-    "Salidas" : 2000,
+    "Salidas" : 2000.0,
     "Otros / Varios": 500.0
 }
 
@@ -69,6 +69,11 @@ def cargar_datos(nombre_hoja):
             df['Monto'] = df['Monto'].apply(limpiar_moneda).fillna(0)
         else:
             df['Monto'] = 0.0
+
+        if 'Presupuesto' in df.columns:
+            df['Presupuesto'] = df['Presupuesto'].apply(limpiar_moneda).fillna(0)
+        else:
+            df['Presupuesto'] = 0.0
 
         return df
     except Exception as e:
@@ -149,7 +154,6 @@ with tab2:
 with tab3:
     st.subheader("Capturar Transacción")
     
-    # Quitamos el "with st.form" para que la pantalla reaccione de inmediato
     c1, c2, c3 = st.columns(3)
     
     with c1:
@@ -174,9 +178,9 @@ with tab3:
         # Mostramos la alerta de dinero restante
         if tipo == "Egreso":
             if disponible >= 0:
-                st.info(f"💡 Presupuesto: **${limite_categoria:,.2f}** | Disponible: **${disponible:,.2f}**")
+                st.info(f"💡 Límite Mensual: **${limite_categoria:,.2f}** | Te quedan: **${disponible:,.2f}**")
             else:
-                st.error(f"⚠️ ¡Te has excedido! Presupuesto: **${limite_categoria:,.2f}** | Disponible: **${disponible:,.2f}**")
+                st.error(f"⚠️ ¡Te has excedido! Límite Mensual: **${limite_categoria:,.2f}** | Saldo en contra: **${disponible:,.2f}**")
         else:
             st.success("💰 Al ser Ingreso, no afecta presupuestos.")
             
@@ -192,19 +196,21 @@ with tab3:
         ]
         tarjeta_especifica = st.selectbox("¿Qué Tarjeta usaste?", lista_tarjetas, disabled=not es_tarjeta)
         
-    # El botón ahora está suelto (no amarrado a un st.form)
     if st.button("Guardar Registro", type="primary"):
         try:
-            presupuesto_asignado = limite_categoria if tipo == "Egreso" else 0.0
+            # --- CORRECCIÓN CLAVE ---
+            # Guardamos en Excel lo que TE QUEDA de presupuesto DESPUÉS de hacer este gasto, no el presupuesto total.
+            lo_que_queda_despues_del_gasto = disponible - monto
+            presupuesto_para_excel = lo_que_queda_despues_del_gasto if tipo == "Egreso" else 0.0
             
             if not es_tarjeta:
                 tarjeta_especifica = "N/A"
                 
             worksheet = spreadsheet.worksheet(hoja_seleccionada)
-            nueva_fila = [fecha, mes, tipo, categoria_seleccionada, concepto, presupuesto_asignado, monto, metodo_pago, tarjeta_especifica]
+            nueva_fila = [fecha, mes, tipo, categoria_seleccionada, concepto, presupuesto_para_excel, monto, metodo_pago, tarjeta_especifica]
             worksheet.append_row(nueva_fila)
-            st.success(f"¡Registro guardado! (Gastaste ${monto:,.2f} en {categoria_seleccionada})")
+            st.success(f"¡Registro guardado! (Te quedan ${lo_que_queda_despues_del_gasto:,.2f} en {categoria_seleccionada})")
             st.cache_data.clear()
-            st.rerun() # Fuerza a recargar la página para limpiar los campos y actualizar saldos
+            st.rerun() 
         except Exception as e:
             st.error(f"Error al guardar: {e}. Verifica que añadiste las nuevas columnas en Google Sheets.")
