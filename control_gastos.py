@@ -21,6 +21,7 @@ PRESUPUESTOS_BASE = {
     "Deudas y Tarjetas": 14000.0,
     "Sueldo/Honorarios": 0.0,
     "Salidas" : 2000.0,
+    "Estudio(Futuro)" : 500.0,
     "Otros / Varios": 500.0
 }
 
