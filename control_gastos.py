@@ -22,6 +22,7 @@ PRESUPUESTOS_BASE = {
     "Sueldo/Honorarios": 0.0,
     "Salidas" : 2000.0,
     "Estudio(Futuro)" : 500.0,
+    "Comida calle" : 2000.0,
     "Otros / Varios": 500.0
 }
 
